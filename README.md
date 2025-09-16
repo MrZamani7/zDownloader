@@ -1,1 +1,1 @@
-Log collection script in python
+Log collection script in python (with the help of asyncio, logging and error handling)
