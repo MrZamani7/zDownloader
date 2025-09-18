@@ -1,1 +1,1 @@
-Log collection script in python (with the help of asyncio, logging and error handling)
+zDownloader is a download manager for practicing asynchronous programming and collecting logs in Python (with the help of asyncio, logging and error handling)
