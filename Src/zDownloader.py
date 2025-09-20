@@ -1,4 +1,5 @@
 import asyncio
+from xmlrpc.client import boolean
 import aiohttp
 import aiofiles
 from aiofiles import os as aos
@@ -10,11 +11,18 @@ async def delete_file(name: str, dir: str|None) -> None:
     if os.path.exists(file_path):
         await aos.remove(file_path)
 
-async def merge_files(name: str, dir: str|None, temp_dir: str, part_numbers: list[int]) -> None:
-    file_path = os.path.join(dir, name) if dir else name
+async def merge_files(file_name: str, file_path: str, temp_dir: str, part_numbers: list[int]) -> boolean:
     async with aiofiles.open(file_path, "wb") as afw:
         for part_number in part_numbers:
-            part = os.path.join(temp_dir, name + f"part{part_number}")
+            part_of_file = os.path.join(temp_dir, file_name + f".part{part_number}")
+            async with aiofiles.open(part_of_file, "rb") as afr:
+                while (True):
+                    part_chunk = await afr.read(10 * 1024 * 1024)
+                    if not part_chunk:
+                        break
+                    await afw.write(part_chunk)
+            await delete_file(part_of_file, None)
+    return True
 
 async def calc_chunks(length: int, number: int) -> list[str]:
     chunk_size = int(length / number)
@@ -26,7 +34,7 @@ async def calc_chunks(length: int, number: int) -> list[str]:
 async def party(url: str, range: str, part_number: int, temp_dir: str) -> int:
     headers = {"Range" : f"bytes={range}"}
     file_name = url.split('/')[-1]
-    file_path = os.path.join(temp_dir, file_name + f"part{part_number}")
+    file_path = os.path.join(temp_dir, file_name + f".part{part_number}")
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.get(url) as resp:
             async with aiofiles.open(file_path, "wb") as file:
@@ -57,16 +65,29 @@ async def downloader(url: str) -> None:
                     except Exception as e:
                         print(e)
                         downloaded = False
+                    file_name = url.split('/')[-1]
+                    file_dir = None
+                    file_path = os.path.join(file_dir, file_name) if file_dir else file_name
                     if downloaded:
-                        print("Downloaded")
+                        print("Merging parts..")
+                        saved = await merge_files(file_name, file_path, temp_dir, list(range(len(chunk_range))))
                     else:
-                        print("Error")
+                        print("Cleaning temp files..")
+                        clean_future = asyncio.gather(
+                            *[
+                                delete_file(file_name + f".part{part_number}", temp_dir) for part_number in range(len(chunk_range))
+                            ]
+                        )
+                        await clean_future
+                    if saved:
+                        print(f"File downloaded in {file_path}")
+                    else:
+                        print(f"Cannot download file from {url}")
             else:
                 print("This link has no length header!")
 
 async def main() -> None:
-    #link = input("Enter the link to begin download: ")
-    link = "https://www.kasandbox.org/programming-images/avatars/leaf-red.png"
+    link = input("Enter the link to begin download: ")
     await downloader(link)
 
 if __name__ == "__main__":
