@@ -1,5 +1,4 @@
 import asyncio
-from xmlrpc.client import boolean
 import aiohttp
 import aiofiles
 from aiofiles import os as aos
@@ -11,7 +10,7 @@ async def delete_file(name: str, dir: str|None) -> None:
     if os.path.exists(file_path):
         await aos.remove(file_path)
 
-async def merge_files(file_name: str, file_path: str, temp_dir: str, part_numbers: list[int]) -> boolean:
+async def merge_files(file_name: str, file_path: str, temp_dir: str, part_numbers: list[int]) -> bool:
     async with aiofiles.open(file_path, "wb") as afw:
         for part_number in part_numbers:
             part_of_file = os.path.join(temp_dir, file_name + f".part{part_number}")
