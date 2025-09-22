@@ -2,13 +2,19 @@ import asyncio
 import aiohttp
 import aiofiles
 from aiofiles import os as aos
-import logging
 import os
+import logging
+import logging.config
+
+log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logging.conf")
+logging.config.fileConfig(log_file_path)
+logger = logging.getLogger("Logger")
 
 async def delete_file(name: str, dir: str|None) -> None:
     file_path = os.path.join(dir, name) if dir else name
     if os.path.exists(file_path):
         await aos.remove(file_path)
+        logger.info(f"File '{name}' removed from '{dir}'") if dir else logger.info(f"File '{name}' removed")
 
 async def merge_files(file_name: str, file_path: str, temp_dir: str, part_numbers: list[int]) -> bool:
     async with aiofiles.open(file_path, "wb") as afw:
