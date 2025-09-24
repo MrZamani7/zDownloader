@@ -14,12 +14,14 @@ async def delete_file(name: str, dir: str|None) -> None:
     file_path = os.path.join(dir, name) if dir else name
     if os.path.exists(file_path):
         await aos.remove(file_path)
-        logger.info(f"File '{name}' removed from '{dir}'") if dir else logger.info(f"File '{name}' removed")
+        logger.debug(f"File '{name}' removed from '{dir}'") if dir else logger.debug(f"File '{name}' removed")
 
 async def merge_files(file_name: str, file_path: str, temp_dir: str, part_numbers: list[int]) -> bool:
+    logger.info(f"There are {len(part_numbers)} parts of {file_name} that will be merged")
     async with aiofiles.open(file_path, "wb") as afw:
         for part_number in part_numbers:
             part_of_file = os.path.join(temp_dir, file_name + f".part{part_number}")
+            logger.debug(f"Merging part {part_of_file}")
             async with aiofiles.open(part_of_file, "rb") as afr:
                 while (True):
                     part_chunk = await afr.read(10 * 1024 * 1024)
@@ -34,6 +36,7 @@ async def calc_chunks(length: int, number: int) -> list[str]:
     chunk_range: list[str] = []
     for n in range(number):
         chunk_range.append(f"{(n*chunk_size)+n}-{((n+1)*chunk_size)+n}")
+    logger.debug(f"There will be {number} chunks of size {chunk_size}, ranging from {chunk_range}")
     return chunk_range
 
 async def party(url: str, range: str, part_number: int, temp_dir: str) -> int:
