@@ -3,7 +3,7 @@ import aiohttp
 import aiofiles
 from aiofiles import os as aos
 import os
-import logging
+import logging # This is a synchronous library but it doesn't matter for a few stdout/stderr logs
 import logging.config
 
 log_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logging.conf")
@@ -17,7 +17,7 @@ async def delete_file(name: str, dir: str|None) -> None:
         logger.debug(f"File '{name}' removed from '{dir}'") if dir else logger.debug(f"File '{name}' removed")
 
 async def merge_files(file_name: str, file_path: str, temp_dir: str, part_numbers: list[int]) -> bool:
-    logger.info(f"There are {len(part_numbers)} parts of {file_name} that will be merged")
+    logger.debug(f"There are {len(part_numbers)} parts of {file_name} that will be merged")
     async with aiofiles.open(file_path, "wb") as afw:
         for part_number in part_numbers:
             part_of_file = os.path.join(temp_dir, file_name + f".part{part_number}")
@@ -43,6 +43,7 @@ async def party(url: str, range: str, part_number: int, temp_dir: str) -> int:
     headers = {"Range" : f"bytes={range}"}
     file_name = url.split('/')[-1]
     file_path = os.path.join(temp_dir, file_name + f".part{part_number}")
+    logger.debug(f"Downloading part {part_number+1} from {file_name}")
     async with aiohttp.ClientSession(headers=headers) as session:
         async with session.get(url) as resp:
             async with aiofiles.open(file_path, "wb") as file:
@@ -64,23 +65,23 @@ async def downloader(url: str) -> None:
                             party(url, range, part_number, temp_dir) for part_number, range in enumerate(chunk_range)
                         ]
                     )
-                    print("Download started..")
+                    logger.info(" #> Download started")
                     downloaded = False
                     saved = False
                     try:
                         await download_future
                         downloaded = True
                     except Exception as e:
-                        print(e)
+                        logger.error(e)
                         downloaded = False
                     file_name = url.split('/')[-1]
                     file_dir = None
                     file_path = os.path.join(file_dir, file_name) if file_dir else file_name
                     if downloaded:
-                        print("Merging parts..")
+                        logger.info(" #> Merging parts")
                         saved = await merge_files(file_name, file_path, temp_dir, list(range(len(chunk_range))))
                     else:
-                        print("Cleaning temp files..")
+                        logger.info(" #> Cleaning temp files")
                         clean_future = asyncio.gather(
                             *[
                                 delete_file(file_name + f".part{part_number}", temp_dir) for part_number in range(len(chunk_range))
@@ -88,14 +89,14 @@ async def downloader(url: str) -> None:
                         )
                         await clean_future
                     if saved:
-                        print(f"File downloaded in {file_path}")
+                        logger.info(f" #> File downloaded in {file_path}")
                     else:
-                        print(f"Cannot download file from {url}")
+                        logger.error(f"Cannot download file from {url}")
             else:
-                print("This link has no length header!")
+                logger.error("This link has no length header or is not a file!")
 
 async def main() -> None:
-    link = input("Enter the link to begin download: ")
+    link = input(" # Enter the link to begin download: ")
     await downloader(link)
 
 if __name__ == "__main__":
